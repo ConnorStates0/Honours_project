@@ -548,7 +548,7 @@ def run_tracker_BoxMot(args=None, tracker_type='BoostTrack',output_json_path='ou
         raise ValueError(f'No pairs of annots found')
     
     results = {}
-
+    data = []
     for uq_key, pairs in uq.items():
         print(f'Processing key {uq_key}')
         results[str(uq_key)] = []
@@ -594,6 +594,9 @@ def run_tracker_BoxMot(args=None, tracker_type='BoostTrack',output_json_path='ou
             metric_res = compute_max_precision_recall(list(next_cam_orig.anns.values()), list(next_cam.anns.values()))
             id_sw_res = calc_id_sw(list(next_cam_orig.anns.values()), list(next_cam.anns.values()))
 
+            avg_precision = metric_res['avg_pred_track_precision']
+            avg_recall = metric_res['avg_gt_track_recall']
+            idsw = id_sw_res["total_id_switches"]
             # Store results in dictionary
             results[str(uq_key)].append({
               "pair": str(pair),
@@ -603,9 +606,10 @@ def run_tracker_BoxMot(args=None, tracker_type='BoostTrack',output_json_path='ou
             })
             data.append({
                'filename': str(pair),
-               'track_thresh': tracker_args['track_thresh'],
-               'match_thresh': tracker_args['match_thresh'],
-               'track_buffer': tracker_args['track_buffer'],
+               'det_thresh': args[0],
+               'iou_thresh': args[1],
+               'max_age': args[2],
+               'model': args[3],
                'avg_precision': avg_precision,
                'avg_recall': avg_recall,
                'total_IDsw': idsw
