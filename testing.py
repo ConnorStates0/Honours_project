@@ -565,7 +565,7 @@ def run_tracker_BoxMot(args=None, tracker_type='BoostTrack',output_json_path='ou
                 tracker = DeepOcSort(det_thresh=args[0], iou_threshold=args[1], max_age=args[2], reid_weights=args[3], device="0", half=False)
             else:
                 print('Default Tracker Parameters')
-                tracker = BoostTrack(, device="0", half=False)
+                tracker = BoostTrack(Path('osnet_x1_0_msmt17.pt'), device="0", half=False)
 
             for i, img_info in next_cam.imgs.items():
                 annots = next_cam.imgToAnns.get(img_info['id'], [])
@@ -615,8 +615,6 @@ if __name__ == '__main__':
   models = [Path('osnet_x0_25_market1501.pth'),Path('osnet_x1_0_msmt17.pt')]
   i=0
   args = [0.3, 0.3, 60, Path('osnet_x0_25_market1501.pth')]
-  run_tracker_BoxMot(args, tracker_type='BoostTrack', output_json_path='test_output_path_'+str(i)+'.json')
-  break
   for thresh in det_thresh:
     for iou in Iou_thresh:
        for age in max_age:
@@ -625,4 +623,4 @@ if __name__ == '__main__':
             args = [thresh, iou, age, model]
             run_tracker_BoxMot(args, tracker_type='BoostTrack', output_json_path='test_output_path_'+str(i)+'.json')
             i = i+1
-            run_tracker_BoxMot(args, tracker_type='DeepOcSort', output_json_path='test_output_path_'+str(i)+'.json')            
+            run_tracker_BoxMot(args, tracker_type='DeepOcSort', output_json_path='test_output_path_'+str(i)+'.json')       
