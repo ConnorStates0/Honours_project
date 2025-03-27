@@ -1,4 +1,5 @@
 from pathlib import Path
+from re import A, I
 import numpy as np
 import collections
 import supervision as sv
@@ -9,8 +10,11 @@ import json
 from pycocotools.coco import COCO
 from pycocotools import mask as maskUtils
 import statistics
-from boxmot import DeepOcSort
+from boxmot import DeepOcSort, BoostTrack
 from PIL import Image
+import argparse
+
+
 
 
 def detections2boxes(detections):
@@ -521,7 +525,7 @@ def run_tracker_bytetrack(tracker_args=None, output_json_path='output_testing.js
     print(f"Tracking results saved to: {output_json_path}")
     
 
-def run_tracker_BoostTrack(tracker_args=None, output_json_path='output_testing.json'):
+def run_tracker_BoxMot(args=None, tracker_type='BoostTrack',output_json_path='output_testing.json'):
     '''
     This is for running internal evals of trackers. In general, the tracker predictions would
     be provided in a COCO object (as a file or after loading) with no access to the GT data. For
@@ -529,6 +533,9 @@ def run_tracker_BoostTrack(tracker_args=None, output_json_path='output_testing.j
     '''
     # Convert string paths to Path objects
     gt_paths = [Path(p) for p in ['/mnt/drv8tb/tempo_remapped/export_output_path/2021-11-10_lunch_2_post_cam0.json', '/mnt/drv8tb/tempo_remapped/export_output_path/2021-11-10_lunch_2_post_cam1.json']]
+
+    #modify to point to where you have the images saved (rel path)
+    images_loc = '../images/'
 
     uq = collections.defaultdict(list)
 
@@ -550,18 +557,21 @@ def run_tracker_BoostTrack(tracker_args=None, output_json_path='output_testing.j
             print(f'\tProcessing pair {pair}')
             next_cam = COCO(pair)
             next_cam_orig = COCO(pair)
-            if tracker_args:
+            if args != None:
               print('Custom Tracker Parameters')
-              tracker = DeepOcSort(Path('osnet_x1_0_msmt17.pt'), device="0", half=False)
+              if tracker_type == 'BoostTrack':
+                tracker = BoostTrack(det_thresh=args[0], iou_threshold=args[1], max_age=args[2], reid_weights=args[3], device="0", half=False)
+              elif tracker_type == 'DeepOcSort':
+                tracker = DeepOcSort(det_thresh=args[0], iou_threshold=args[1], max_age=args[2], reid_weights=args[3], device="0", half=False)
             else:
                 print('Default Tracker Parameters')
-                tracker = DeepOcSort(Path('osnet_x1_0_msmt17.pt'), device="0", half=False)
+                tracker = BoostTrack(, device="0", half=False)
 
             for i, img_info in next_cam.imgs.items():
                 annots = next_cam.imgToAnns.get(img_info['id'], [])
                 if len(annots) > 0:
                     dets = convert_annot_to_dets(annots, next_cam.cats, img_info)
-                    image = np.array(Image.open('../images/'+img_info['file_name']))
+                    image = np.array(Image.open(images_loc+img_info['file_name']))
                     res_dets = update_with_detections_boxmot(tracker, dets, image)
 
                     # pre-reset IDs
@@ -599,4 +609,20 @@ def run_tracker_BoostTrack(tracker_args=None, output_json_path='output_testing.j
     print(f"Tracking results saved to: {output_json_path}")
 
 if __name__ == '__main__':
-  run_tracker_BoostTrack(output_json_path='test_output_path.json')
+  det_thresh = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+  Iou_thresh = [0.3, 0.5, 0.7]
+  max_age = [15, 30, 60]
+  models = [Path('osnet_x0_25_market1501.pth'),Path('osnet_x1_0_msmt17.pt')]
+  i=0
+  args = [0.3, 0.3, 60, Path('osnet_x0_25_market1501.pth')]
+  run_tracker_BoxMot(args, tracker_type='BoostTrack', output_json_path='test_output_path_'+str(i)+'.json')
+  break
+  for thresh in det_thresh:
+    for iou in Iou_thresh:
+       for age in max_age:
+          for model in models:
+            i = i+1
+            args = [thresh, iou, age, model]
+            run_tracker_BoxMot(args, tracker_type='BoostTrack', output_json_path='test_output_path_'+str(i)+'.json')
+            i = i+1
+            run_tracker_BoxMot(args, tracker_type='DeepOcSort', output_json_path='test_output_path_'+str(i)+'.json')            
