@@ -13,7 +13,7 @@ import statistics
 from boxmot import DeepOcSort, BoostTrack
 from PIL import Image
 import argparse
-
+import itertools
 
 
 
@@ -601,26 +601,54 @@ def run_tracker_BoxMot(args=None, tracker_type='BoostTrack',output_json_path='ou
               "precision_recall_metrics": convert_to_serializable(metric_res),
               "id_switches_metrics": convert_to_serializable(id_sw_res)
             })
+            data.append({
+               'filename': str(pair),
+               'track_thresh': tracker_args['track_thresh'],
+               'match_thresh': tracker_args['match_thresh'],
+               'track_buffer': tracker_args['track_buffer'],
+               'avg_precision': avg_precision,
+               'avg_recall': avg_recall,
+               'total_IDsw': idsw
+            })
 
-    # Save results to a JSON file
+    '''# Save results to a JSON file
     with open(output_json_path, 'w', encoding='utf-8') as json_file:
       json.dump(results, json_file, indent=4)
     
-    print(f"Tracking results saved to: {output_json_path}")
+    print(f"Tracking results saved to: {output_json_path}")'''
+    
+    return data
 
 if __name__ == '__main__':
-  det_thresh = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-  Iou_thresh = [0.3, 0.5, 0.7]
-  max_age = [15, 30, 60]
-  models = [Path('osnet_x0_25_market1501.pth'),Path('osnet_x1_0_msmt17.pt')]
-  i=0
-  args = [0.3, 0.3, 60, Path('osnet_x0_25_market1501.pth')]
-  for thresh in det_thresh:
-    for iou in Iou_thresh:
-       for age in max_age:
-          for model in models:
-            i = i+1
-            args = [thresh, iou, age, model]
-            run_tracker_BoxMot(args, tracker_type='BoostTrack', output_json_path='test_output_path_'+str(i)+'.json')
-            i = i+1
-            run_tracker_BoxMot(args, tracker_type='DeepOcSort', output_json_path='test_output_path_'+str(i)+'.json')       
+  det_thresh_values = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+  Iou_thresh_values = [0.3, 0.5, 0.7]
+  max_age_values = [15, 30, 60]
+  models = ['osnet_x0_25_market1501.pt','osnet_x1_0_msmt17.pt']
+  param_grid = list(itertools.product(
+     det_thresh_values,
+     Iou_thresh_values,
+     max_age_values,
+     models
+  ))
+  
+  results = []
+  for det_thresh, Iou_thresh, max_age, model in param_grid:
+     print(f"Running BoostTrack with: T={det_thresh}, M={Iou_thresh}, B={max_age}, M={model}")
+
+     args = [det_thresh, Iou_thresh, max_age, Path(model)]
+     results.extend(run_tracker_BoxMot(args, tracker_type='BoostTrack', output_json_path=f"BoostTrack/detthresh{det_thresh}_iouthresh{Iou_thresh}_maxage{max_age}_model{model}.json"))
+   
+  df = pd.DataFrame(results)
+  df.to_csv("BoostTrack_results.csv", index=False)
+  print("CSV saved to: BoostTrack_results.csv")
+  
+  results = []
+  for det_thresh, Iou_thresh, max_age, model in param_grid:
+     print(f"Running DeepOcSort with: T={det_thresh}, M={Iou_thresh}, B={max_age}, M={model}")
+
+     args = [det_thresh, Iou_thresh, max_age, Path(model)]
+     results.extend(run_tracker_BoxMot(args, tracker_type='DeepOcSort', output_json_path=f"DeepOcSort/detthresh{det_thresh}_iouthresh{Iou_thresh}_maxage{max_age}_model{model}.json"))
+   
+  df = pd.DataFrame(results)
+  df.to_csv("DeepOcSort_results.csv", index=False)
+  print("CSV saved to: DeepOcSort_results.csv")
