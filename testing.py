@@ -70,11 +70,11 @@ def update_with_detections(tracker, detections):
     detections.tracker_id = np.array([], dtype=int)
 
     return detections
-
+#modified version to take images
 def update_with_detections_boxmot(tracker, detections, img):
  
   tensors = detections2boxes(detections=detections)
-  tracks = tracker.update(tensors, img)
+  tracks = tracker.update(tensors, img)#boxmot update function
 
   if len(tracks) > 0:
     detection_bounding_boxes = np.asarray([det[:4] for det in tensors])
@@ -449,7 +449,7 @@ def calc_id_sw(gt_data, pred_data, gap_threshold=1):
   }
 
   return results
-
+#original run_tracker function just renamed
 def run_tracker_bytetrack(tracker_args=None, output_json_path='output_testing.json'):
     '''
     This is for running internal evals of trackers. In general, the tracker predictions would
@@ -457,7 +457,7 @@ def run_tracker_bytetrack(tracker_args=None, output_json_path='output_testing.js
     now we loop the GT data and run predictions all in one go.
     '''
     # Convert string paths to Path objects
-    gt_folder = Path("/mnt/drv8tb/tempo_remapped/export_output_path")
+    gt_folder = Path("/mnt/drv8tb/tempo_remapped/export_output_path")#path to folder with ground truths
     gt_paths = list(gt_folder.glob("*.json"))
 
     uq = collections.defaultdict(list)
@@ -492,6 +492,7 @@ def run_tracker_bytetrack(tracker_args=None, output_json_path='output_testing.js
             else:
                 print('Default Tracker Parameters')
                 tracker = sv.ByteTrack(frame_rate=9)
+            #start time for runtime calculation
             start_time = time.time()
             for i, img_info in next_cam.imgs.items():
                 annots = next_cam.imgToAnns.get(img_info['id'], [])
@@ -513,6 +514,7 @@ def run_tracker_bytetrack(tracker_args=None, output_json_path='output_testing.js
 
                         # replace the annot
                         annots[didx]['attributes']['track_id'] = res_dets.tracker_id[didx]
+            #end time and runtime calculation
             end_time = time.time()
             time_elapsed = end_time - start_time
             # we have the detection outputs, now do the eval
@@ -532,7 +534,7 @@ def run_tracker_bytetrack(tracker_args=None, output_json_path='output_testing.js
               "precision_recall_metrics": convert_to_serializable(metric_res),
               "id_switches_metrics": convert_to_serializable(id_sw_res)
             })
-
+            #append metrics to data variable with configuration inputs
             data.append({
                'filename': str(pair),
                'track_thresh': tracker_args['track_thresh'],
@@ -555,7 +557,7 @@ def run_tracker_bytetrack(tracker_args=None, output_json_path='output_testing.js
     
     return data
     
-
+#copy of original run_tracker modified for ocsort (only change is tracker initialization)
 def run_tracker_ocsort(tracker_args=None, output_json_path='output_ocsort.json'):
     gt_folder = Path("/mnt/drv8tb/tempo_remapped/export_output_path")
     gt_paths = list(gt_folder.glob("*.json"))
@@ -632,7 +634,7 @@ def run_tracker_ocsort(tracker_args=None, output_json_path='output_ocsort.json')
                 "precision_recall_metrics": convert_to_serializable(metric_res),
                 "id_switches_metrics": convert_to_serializable(id_sw_res)
             })
-
+            #append metrics to data variable with configuration inputs
             data.append({
                 'filename': str(pair),
                 'det_thresh': tracker_args['det_thresh'],
@@ -652,7 +654,7 @@ def run_tracker_ocsort(tracker_args=None, output_json_path='output_ocsort.json')
     print("Results saved to: ocsort_config_results.csv")
     """
     return data
-
+#boxmot version of run_tracker same as past 2 with some modifications to tracker initializtion
 def run_tracker_BoxMot(args=None, tracker_type='BoostTrack',output_json_path='output_testing.json'):
     '''
     This is for running internal evals of trackers. In general, the tracker predictions would
@@ -701,6 +703,7 @@ def run_tracker_BoxMot(args=None, tracker_type='BoostTrack',output_json_path='ou
                 annots = next_cam.imgToAnns.get(img_info['id'], [])
                 if len(annots) > 0:
                     dets = convert_annot_to_dets(annots, next_cam.cats, img_info)
+                    #grab image as numpy array from file location
                     image = np.array(Image.open(images_loc+img_info['file_name']))
                     res_dets = update_with_detections_boxmot(tracker, dets, image)
 
@@ -735,6 +738,8 @@ def run_tracker_BoxMot(args=None, tracker_type='BoostTrack',output_json_path='ou
               "precision_recall_metrics": convert_to_serializable(metric_res),
               "id_switches_metrics": convert_to_serializable(id_sw_res)
             })
+          
+            #append metrics to data variable with configuration inputs
             data.append({
                'filename': str(pair),
                'det_thresh': args[0],
@@ -838,12 +843,10 @@ if __name__ == '__main__':
   
   results = []
   for  det_thresh, Iou_thresh, max_age, model, reid in tqdm(param_grid, desc="Running BoostTrack configs"):
-  #for config in tqdm(configs, desc="Running BoostTrack configs"):
      print(f"Running BoostTrack with: T={det_thresh}, M={Iou_thresh}, B={max_age}, M={model}, reid={reid}")
      args = [det_thresh, Iou_thresh, max_age, Path(model), reid]
      try:
          data_result = run_tracker_BoxMot(args, tracker_type='BoostTrack', output_json_path=f"BoostTrack/detthresh{det_thresh}_iouthresh{Iou_thresh}_maxage{max_age}_model{model}.json")
-         #data_result = run_tracker_BoxMot(config, tracker_type='BoostTrack', output_json_path=f"BoostTrack/detthresh{config[0]}_iouthresh{config[1]}_maxage{config[2]}_model{config[3]}.json")
          print(data_result)
          results.extend(data_result)
      except:
@@ -856,7 +859,7 @@ if __name__ == '__main__':
   print("CSV saved to: BoostTrack_results.csv")
 #Deep OC Sort
   det_thresh_values = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-  Iou_thresh_values = [0.9] #0.3, 0.5, 0.7,
+  Iou_thresh_values = [0.3, 0.5, 0.7, 0.9]
   max_age_values = [15, 30]
   models = ['osnet_x1_0_msmt17.pt','osnet_x0_25_market1501.pt']
   reid = [True]
@@ -875,7 +878,6 @@ if __name__ == '__main__':
      args = [det_thresh, Iou_thresh, max_age, Path(model), reid]
      try:
          data_result = run_tracker_BoxMot(args, tracker_type='DeepOcSort', output_json_path=f"DeepOcSort/detthresh{det_thresh}_iouthresh{Iou_thresh}_maxage{max_age}_model{model}.json")    
-         #data_result = run_tracker_BoxMot(config, tracker_type='DeepOcSort', output_json_path=f"DeepOcSort/detthresh{config[0]}_iouthresh{config[1]}_maxage{config[2]}_model{config[3]}.json")
          print(data_result)
          results.extend(data_result)
      except:
